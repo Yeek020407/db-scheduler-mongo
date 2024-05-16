@@ -29,6 +29,7 @@ import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.FindOneAndUpdateOptions;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.ReturnDocument;
+import com.mongodb.client.model.Updates;
 import com.mongodb.client.result.DeleteResult;
 import java.time.Duration;
 import java.time.Instant;
@@ -264,11 +265,20 @@ public class MongoTaskRepository implements TaskRepository {
         final FindOneAndUpdateOptions options = new FindOneAndUpdateOptions();
         options.upsert(false);
 
-        Bson update = combine(set(Fields.executionTime, nextExecutionTime),
-            set(Fields.taskData, serializer.serialize(data)),
-            set(Fields.lastSuccess, lastSuccess), set(Fields.lastFailure, lastFailure),
-            set(Fields.consecutiveFailures, consecutiveFailures),
-            inc(Fields.version, 1));
+        Bson update = Updates.combine(
+                set(TaskEntity.Fields.executionTime, nextExecutionTime),
+                set(TaskEntity.Fields.lastSuccess, lastSuccess),
+                set(TaskEntity.Fields.lastFailure, lastFailure),
+                set(TaskEntity.Fields.consecutiveFailures, consecutiveFailures),
+                set(TaskEntity.Fields.picked, false),
+                set(TaskEntity.Fields.pickedBy, null),
+                set(TaskEntity.Fields.lastHeartbeat, null),
+                inc(TaskEntity.Fields.version, 1)
+        );
+
+        if(data != null) {
+            update = Updates.combine(update, set(TaskEntity.Fields.taskData, this.serializer.serialize(data)));
+        }
 
         final TaskEntity document = this.collection
             .findOneAndUpdate(buildFilterFromExecution(execution), update, options);
